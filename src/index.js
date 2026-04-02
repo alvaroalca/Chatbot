@@ -13,10 +13,11 @@ Regla fundamental: cuando alguien pregunta algo concreto (un truco, un dato, una
 
 Siempre respondes en español. Solo hablas de videojuegos y temas directamente relacionados (hardware gaming, industria, cultura gamer). Si te preguntan sobre otra cosa, lo reconduces con humor hacia los videojuegos.`;
 
-const ALLOWED_ORIGINS = [
-  'https://alvaroalcaraz.com',
-  'https://dev-mipaginaweb.alvaroalcap.workers.dev',
-];
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 const MAX_CONTENT_LENGTH = 1000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -24,15 +25,6 @@ const RATE_LIMIT_MAX = 15;
 
 // Rate limiting en memoria (se resetea si el Worker se recicla, suficiente para portfolio)
 const rateLimitMap = new Map();
-
-function getCorsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -68,22 +60,19 @@ function sanitizeMessages(messages) {
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get('Origin') || '';
-    const corsHeaders = getCorsHeaders(origin);
-
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { headers: CORS_HEADERS });
     }
 
     if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+      return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS });
     }
 
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     if (isRateLimited(ip)) {
       return new Response(JSON.stringify({ error: 'Too many requests' }), {
         status: 429,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
 
@@ -93,14 +82,14 @@ export default {
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
 
     if (!validateMessages(body.messages)) {
       return new Response(JSON.stringify({ error: 'Invalid messages' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
 
@@ -116,12 +105,12 @@ export default {
       });
 
       return new Response(JSON.stringify({ response: result.response }), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     } catch {
       return new Response(JSON.stringify({ error: 'AI error' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
     }
   },
